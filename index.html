@@ -400,7 +400,7 @@ async function run(){
     content=task;
   }
 
-  const body={ model:MODEL, max_tokens: lite?1200:4000, messages:[{role:'user',content}] };
+  const body={ model:MODEL, max_tokens: lite?1200:6000, messages:[{role:'user',content}] };
 
   try{
     const res=await fetch(WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
