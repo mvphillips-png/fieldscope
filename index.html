@@ -238,8 +238,8 @@
     <div class="rebuild-row">
       <label for="depth">Depth</label>
       <select id="depth">
-        <option value="fast">Fast &middot; model knowledge (quick)</option>
-        <option value="deep">Deep &middot; web-verified origins &amp; numbers (slower)</option>
+        <option value="standard">Standard &middot; full scored field guide kit</option>
+        <option value="lite">Lite &middot; quick idea dump (cheapest)</option>
       </select>
     </div>
 
@@ -367,6 +367,18 @@ Return the CURATED strongest ingredients, capped per section. Respond with ONLY 
 
 CAPS: anatomy up to 8, evolution up to 5, species up to 6, mechanism up to 5, behavior up to 6, clever up to 5, rules up to 5, wrong up to 4, ridiculous up to 4, unnoticed up to 5, numbers up to 5, go_look 3-5, palette 5-6, lettering up to 5, verify 3-5.`;
 
+const LITE_INSTRUCTION = `You are FIELDSCOPE in LITE mode — a fast idea dump for an illustrator, not the full guide. Given an ORDINARY THING, return a quick spread of the most drawable, funny, surprising ideas hiding in it, with no scoring and no extras. Run on your own knowledge; never claim an uncertain date or an invented inventor.
+
+Respond with ONLY valid JSON — no markdown, no preamble — in EXACTLY this shape:
+{
+  "thing": "The ordinary thing, cleanly titled",
+  "read": "1 sentence: what it really is and why it's secretly interesting",
+  "reveal": "one punchy line: what this thing quietly reveals about us",
+  "ideas": ["a drawable one-line idea — a part, a species, a human behavior, a clever bit, or a ridiculous bit; strongest first"],
+  "go_look": ["a specific thing to NOTICE next time you meet one — observable, not trivia"]
+}
+CAPS: ideas 12-18, go_look 3-5.`;
+
 async function run(){
   const thing=cityEl.value.trim();
   if(!thing && !imageData){ setStatus('Type an ordinary thing or upload a photo first.',true); return; }
@@ -376,11 +388,10 @@ async function run(){
   lastThing = thing || '(from photo)';
   lastImageUrl = imageData ? ('data:'+mediaType+';base64,'+imageData) : null;
 
-  const deep = depthEl.value==='deep';
-  let task = INSTRUCTION;
+  const lite = depthEl.value==='lite';
+  let task = (lite ? LITE_INSTRUCTION : INSTRUCTION);
   if(thing) task += `\n\nORDINARY THING: ${thing}`;
   if(imageData) task += `\n\nA photo of the thing is attached above — use what you can actually see in it to ground and sharpen the specifics.`;
-  if(deep) task += `\n\nUse web search to VERIFY the origin story, inventor, dates, and any numbers before asserting them, and prefer verified real facts over guesses. Then return only the JSON.`;
 
   let content;
   if(imageData){
@@ -389,8 +400,7 @@ async function run(){
     content=task;
   }
 
-  const body={ model:MODEL, max_tokens:8000, messages:[{role:'user',content}] };
-  if(deep) body.tools=[{type:'web_search_20250305',name:'web_search'}];
+  const body={ model:MODEL, max_tokens: lite?1200:8000, messages:[{role:'user',content}] };
 
   try{
     const res=await fetch(WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -462,6 +472,16 @@ function bodyHTML(d){
   let h='';
   h+=`<div class="kithead"><div class="kc">Field Guide to ${esc(d.thing||lastThing)}</div>${d.read?`<div class="kr">${esc(d.read)}</div>`:''}</div>`;
   if(d.reveal) h+=`<div class="onlyhere"><div class="k">What it's really about</div><div class="v">${esc(d.reveal)}</div></div>`;
+
+  // Lite mode: quick idea dump, then out
+  if(Array.isArray(d.ideas) && d.ideas.length){
+    h+=plainSection('a-cyan','Drawable ideas',d.ideas,x=>`<div class="pl">${esc(x)}</div>`);
+    const glL=(d.go_look||[]).filter(Boolean).slice(0,5);
+    if(glL.length){
+      h+=`<div class="golook"><div class="glk">Go Look</div><div class="gls">next time you meet one, notice —</div>${glL.map(x=>`<div class="gl">${esc(x)}</div>`).join('')}</div>`;
+    }
+    return h;
+  }
 
   h+=section('a-cyan','Anatomy · parts to label',d.anatomy,8);
   h+=section('a-amber','Evolution · then → now',d.evolution,5,false);
@@ -568,7 +588,7 @@ async function snapshot(){
   finally{ node.remove(); btn.disabled=false; btn.textContent=old; }
 }
 
-function newThing(){ cityEl.value=''; clearImage(); depthEl.value='fast'; outEl.style.display='none'; outEl.innerHTML=''; setStatus(''); window.scrollTo({top:0,behavior:'smooth'}); cityEl.focus(); }
+function newThing(){ cityEl.value=''; clearImage(); depthEl.value='standard'; outEl.style.display='none'; outEl.innerHTML=''; setStatus(''); window.scrollTo({top:0,behavior:'smooth'}); cityEl.focus(); }
 
 function setStatus(m,e){ statusEl.innerHTML=m; statusEl.className='status'+(e?' err':''); }
 
