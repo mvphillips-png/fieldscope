@@ -71,11 +71,6 @@
   .preview{margin-top:12px;display:none;}
   .preview img{max-height:180px;max-width:100%;border:1px solid var(--line);border-radius:3px;}
 
-  .chip-row{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px;}
-  .seed{font-family:var(--mono);font-size:11px;letter-spacing:.05em;color:var(--muted);background:#020407;
-      border:1px solid var(--line);border-radius:20px;padding:6px 12px;cursor:pointer;transition:.15s;}
-  .seed:hover{border-color:var(--cyan);color:var(--cyan);}
-
   .rebuild-row{margin-top:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .rebuild-row label{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase;}
   select{background:#020407;color:var(--cyan);border:1px solid rgba(0,229,255,.3);border-radius:3px;
@@ -226,7 +221,6 @@
   <div class="io">
     <label class="lbl">Ordinary thing · type it and / or upload a photo</label>
     <input class="city" id="city" placeholder="e.g. shopping carts, parking lots, umbrellas, traffic cones">
-    <div class="chip-row" id="seeds"></div>
     <div class="row">
       <button class="file-btn" id="pick">&#9650; Upload a photo</button>
       <input type="file" id="file" accept="image/*">
@@ -280,8 +274,6 @@ const LENSES = [
   ["What does it reveal about us?","The closing perspective. The whole point of the guide."]
 ];
 
-const SEEDS = ["Shopping carts","Parking lots","Traffic cones","Umbrellas","Vending machines","Elevators","Sticky notes","Gas stations","Drive-thrus","Mailboxes","Public bathrooms","Escalators"];
-
 let imageData=null, mediaType=null, lastData=null, lastThing='', lastImageUrl=null;
 
 const $ = id => document.getElementById(id);
@@ -294,16 +286,6 @@ const cityEl=$('city'), statusEl=$('status'), outEl=$('out'), goEl=$('go'), dept
     div.className='f';
     div.innerHTML=`<div class="fn">${n}</div><div class="fd">${d}</div>`;
     flist.appendChild(div);
-  });
-})();
-
-(function initSeeds(){
-  const box=$('seeds');
-  SEEDS.forEach(s=>{
-    const b=document.createElement('span');
-    b.className='seed'; b.textContent=s;
-    b.addEventListener('click',()=>{ cityEl.value=s; cityEl.focus(); });
-    box.appendChild(b);
   });
 })();
 
@@ -405,7 +387,7 @@ async function callPass(task, tokens){
   const data=await res.json();
   if(data.error) throw new Error(data.error.message||'API error');
   const raw=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
-  return parseJSON(raw);
+  return { parsed: parseJSON(raw), raw, stop: data.stop_reason||'' };
 }
 
 async function run(){
@@ -423,32 +405,60 @@ async function run(){
   try{
     if(lite){
       setStatus('<span class="scan">Opening the guide</span>');
-      const d = await callPass(LITE_INSTRUCTION+thingLine+imgLine, 1200);
-      if(!d) throw new Error('Could not parse the response — run again.');
-      render(d);
+      const r = await callPass(LITE_INSTRUCTION+thingLine+imgLine, 1200);
+      if(!r.parsed) throw new Error('Response unreadable ('+r.raw.length+' chars, stop='+(r.stop||'?')+') — run again.');
+      render(r.parsed);
       setStatus('');
     } else {
       // Two-pass Standard: split so neither request truncates or times out.
       setStatus('<span class="scan">Building the guide · two passes</span>');
-      const [a,b] = await Promise.all([
-        callPass(INSTRUCTION_A+thingLine+imgLine, 4000),
-        callPass(INSTRUCTION_B+thingLine+imgLine, 4000)
+      const [ra,rb] = await Promise.allSettled([
+        callPass(INSTRUCTION_A+thingLine+imgLine, 5000),
+        callPass(INSTRUCTION_B+thingLine+imgLine, 3500)
       ]);
-      if(!a) throw new Error('Could not parse the response — try Lite mode or run again.');
-      const merged = Object.assign({}, a, b||{});
+      if(ra.status==='rejected') throw new Error(ra.reason.message);
+      const A=ra.value;
+      if(!A.parsed) throw new Error('Pass 1 unreadable ('+A.raw.length+' chars, stop='+(A.stop||'?')+') — try Lite or run again.');
+      const B = (rb.status==='fulfilled' && rb.value.parsed) ? rb.value.parsed : null;
+      const merged = Object.assign({}, A.parsed, B||{});
       render(merged);
-      setStatus(b ? '' : 'Note: the extras pass came back garbled — core kit shown. Run again for the full guide.');
+      setStatus(B ? '' : 'Note: the extras pass didn\'t come back clean — core kit shown. Run again for the full guide.');
     }
   }catch(err){
     setStatus('Error: '+err.message,true);
   }finally{ goEl.disabled=false; }
 }
 
+function tryParse(t){ try{ return JSON.parse(t); }catch{ return null; } }
+function repairTruncated(s){
+  let inStr=false, esc=false; const stack=[];
+  for(let i=0;i<s.length;i++){
+    const c=s[i];
+    if(esc){ esc=false; continue; }
+    if(c==='\\'){ if(inStr) esc=true; continue; }
+    if(c==='"'){ inStr=!inStr; continue; }
+    if(inStr) continue;
+    if(c==='{'||c==='[') stack.push(c);
+    else if(c==='}'||c===']') stack.pop();
+  }
+  let out=s;
+  if(inStr) out+='"';
+  out=out.replace(/,\s*$/,'');
+  for(let i=stack.length-1;i>=0;i--) out += (stack[i]==='{' ? '}' : ']');
+  return out;
+}
 function parseJSON(raw){
+  if(!raw) return null;
   let s=raw.replace(/```json/gi,'').replace(/```/g,'').trim();
-  const a=s.indexOf('{'), b=s.lastIndexOf('}');
-  if(a===-1||b===-1) return null;
-  try{ return JSON.parse(s.slice(a,b+1)); }catch{ return null; }
+  const a=s.indexOf('{');
+  if(a===-1) return null;
+  s=s.slice(a);
+  const b=s.lastIndexOf('}');
+  if(b!==-1){ const d=tryParse(s.slice(0,b+1)); if(d) return d; }        // clean parse
+  const decomma=s.replace(/,(\s*[}\]])/g,'$1');                          // strip trailing commas
+  const b2=decomma.lastIndexOf('}');
+  if(b2!==-1){ const d2=tryParse(decomma.slice(0,b2+1)); if(d2) return d2; }
+  return tryParse(repairTruncated(decomma));                            // close truncated braces
 }
 function esc(t){const d=document.createElement('div');d.textContent=t==null?'':t;return d.innerHTML;}
 function num(x){x=parseInt(x,10);return isNaN(x)?0:Math.max(0,Math.min(5,x));}
