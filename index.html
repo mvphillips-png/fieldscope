@@ -320,37 +320,53 @@ function clearImage(){imageData=null;mediaType=null;$('file').value='';$('previe
 
 const LENS_TEXT = LENSES.map(([n,d])=>`- ${n} ${d}`).join('\n');
 
-const INSTRUCTION = `You are FIELDSCOPE, a research scout for an illustrator building a FIELD GUIDE TO AN ORDINARY THING — an illustrated, funny, genuinely useful guide to something people walk past every day and never stop to understand. You are NOT writing an encyclopedia entry. Your job is to find the drawable, surprising, human, secretly-interesting stuff inside an ordinary object or place, and hand back a curated, scored kit an illustrator can start drawing from immediately.
+// Shared voice + rules used by both Standard passes.
+const PREAMBLE = `You are FIELDSCOPE, a research scout for an illustrator building a FIELD GUIDE TO AN ORDINARY THING — an illustrated, funny, genuinely useful guide to something people walk past every day and never stop to understand. You are NOT writing an encyclopedia entry. You find the drawable, surprising, human, secretly-interesting stuff inside an ordinary object or place.
 
 LOOK THROUGH ALL OF THESE LENSES (they are how you hunt, not the output shape):
 ${LENS_TEXT}
 
 RULES THAT SEPARATE THIS FROM AN ENCYCLOPEDIA:
 - REJECT GENERIC. "It has wheels" is nothing. "The front-left caster that's always slightly off, so every cart pulls left in the exact aisle you're trying to steer straight" is an ingredient. Every item must be specific, particular, observable, and drawable.
-- HUMAN BEHAVIOR is a signature. The predictable, automatic, faintly absurd things people do around the thing are gold — chase them hard.
-- HUMOR is the voice. The "surprisingly ridiculous" and behavior sections are where the guide gets funny. Be genuinely funny, never forced or cutesy.
-- CHASE THE REVEAL hardest: the closing line about what this ordinary thing quietly reveals about how humans behave when nobody is telling them what to do. That's the whole point — make it land.
-- The GO LOOK items must be things a reader can literally NOTICE next time they encounter the thing — observations, not trivia. This is the guide's signature payoff.
-- HONESTY — this matters most. Do NOT fabricate an inventor, a patent date, a "first invented in [year]", or a statistic. Ordinary objects are exactly where fake-confident origin stories and made-up numbers creep in. If you are not genuinely sure a specific name/date/number is true, either leave it out or route it to "verify" as a thing to check. A true "nobody's certain who first did this" beats a confident fabrication every time. Only put a hard fact in the main kit if you're actually confident it's correct.
+- HUMAN BEHAVIOR is a signature. The predictable, automatic, faintly absurd things people do around the thing are gold.
+- HUMOR is the voice. Be genuinely funny, never forced or cutesy.
+- HONESTY — this matters most. Do NOT fabricate an inventor, a patent date, a "first invented in [year]", or a statistic. If you are not genuinely sure a specific name/date/number is true, leave it out (or, in the pass that has a "verify" field, route it there). A true "nobody's certain who first did this" beats a confident fabrication every time.`;
 
-SCORING (integers 1-5) for every drawable item:
+// PASS 1 — the heavy scored drawable sections.
+const INSTRUCTION_A = `${PREAMBLE}
+
+THIS IS PASS 1 OF 2 — the drawable core. Return ONLY the scored sections below.
+
+SCORING (integers 1-5) for every item:
 - v = visual potential (how striking / drawable it is)
-- s = surprise (does it make a reader go "huh — I never realized that") — weight this high
+- s = surprise (does it make a reader go "huh — I never realized that") — weight high
 - r = relatable (will an ordinary reader instantly recognize it from their own life)
-- h = humor potential (how much comedic juice is in it) — weight this high
-Also: diff = "Easy" | "Med" | "Hard" (illustration difficulty), and use = "Spot" | "Diagram" | "Hero" | "Timeline" | "Type" | "BG" (best use in the guide).
+- h = humor potential — weight high
+Also: diff = "Easy" | "Med" | "Hard", and use = "Spot" | "Diagram" | "Hero" | "Timeline" | "Type" | "BG".
 
-Return the CURATED strongest ingredients, capped per section. Respond with ONLY valid JSON — no markdown, no preamble — in EXACTLY this shape:
+Return the CURATED strongest ingredients, capped. Respond with ONLY valid JSON — no markdown, no preamble — in EXACTLY this shape:
 {
   "thing": "The ordinary thing, cleanly titled",
   "read": "1-2 sentences: what this thing really is and why it secretly deserves a whole guide",
-  "reveal": "one punchy sentence: what this ordinary thing reveals about us (the closing perspective, lens 20)",
+  "reveal": "one punchy sentence: what this ordinary thing quietly reveals about us (the closing perspective)",
   "anatomy": [{"n":"part to label","d":"what it is / the quiet detail worth pointing at","v":4,"s":3,"r":4,"h":2,"diff":"Easy","use":"Diagram"}],
   "evolution": [{"n":"era or stage","d":"what it looked like / what changed","v":4,"s":4,"r":3,"h":2,"diff":"Med","use":"Timeline"}],
   "species": [{"n":"variety / type","d":"how to identify it — the 'look for…' tell","v":4,"s":3,"r":4,"h":3,"diff":"Easy","use":"Spot"}],
   "mechanism": [{"n":"how-it-works bit","d":"the clever bit of the mechanism, drawn as a step or cutaway","v":4,"s":4,"r":3,"h":2,"diff":"Med","use":"Diagram"}],
   "behavior": [{"n":"the human behavior","d":"the predictable, drawable thing people do around it","v":4,"s":4,"r":5,"h":5,"diff":"Med","use":"Spot"}],
-  "clever": [{"n":"the clever thing","d":"the hidden-in-plain-sight smart design or psychology","v":3,"s":5,"r":3,"h":2,"diff":"Med","use":"Diagram"}],
+  "clever": [{"n":"the clever thing","d":"the hidden-in-plain-sight smart design or psychology","v":3,"s":5,"r":3,"h":2,"diff":"Med","use":"Diagram"}]
+}
+CAPS: anatomy up to 8, evolution up to 5, species up to 6, mechanism up to 5, behavior up to 6, clever up to 5.`;
+
+// PASS 2 — the lighter extras + the guide-assembly ideas.
+const INSTRUCTION_B = `${PREAMBLE}
+
+THIS IS PASS 2 OF 2 — the extras. Return ONLY the sections below, for the SAME ordinary thing.
+- CHASE THE REVEAL and the closing perspective — humor lives in "ridiculous" and the behavior around the thing.
+- The "go_look" items must be things a reader can literally NOTICE next time — observations, not trivia. This is the guide's signature payoff.
+
+Respond with ONLY valid JSON — no markdown, no preamble — in EXACTLY this shape:
+{
   "rules": ["an unwritten social rule everybody follows around the thing"],
   "wrong": ["a thing people consistently do wrong or misunderstand"],
   "ridiculous": ["the surprisingly ridiculous thing — the joke the object is quietly telling"],
@@ -362,10 +378,9 @@ Return the CURATED strongest ingredients, capped per section. Respond with ONLY 
   "cover": "one field-guide cover composition idea",
   "spread": "one hero two-page illustrated-spread idea (the centerpiece diagram)",
   "poster": "one single-image poster composition idea",
-  "verify": [{"claim":"a fact, date, name, or number in this kit you are least sure is true/current","check":"where a human should confirm it (patent record, maker's site, a specific source)"}]
+  "verify": [{"claim":"a fact, date, name, or number you are least sure is true/current","check":"where a human should confirm it (patent record, maker's site, a specific source)"}]
 }
-
-CAPS: anatomy up to 8, evolution up to 5, species up to 6, mechanism up to 5, behavior up to 6, clever up to 5, rules up to 5, wrong up to 4, ridiculous up to 4, unnoticed up to 5, numbers up to 5, go_look 3-5, palette 5-6, lettering up to 5, verify 3-5.`;
+CAPS: rules up to 5, wrong up to 4, ridiculous up to 4, unnoticed up to 5, numbers up to 5, go_look 3-5, palette 5-6, lettering up to 5, verify 3-5.`;
 
 const LITE_INSTRUCTION = `You are FIELDSCOPE in LITE mode — a fast idea dump for an illustrator, not the full guide. Given an ORDINARY THING, return a quick spread of the most drawable, funny, surprising ideas hiding in it, with no scoring and no extras. Run on your own knowledge; never claim an uncertain date or an invented inventor.
 
@@ -379,38 +394,51 @@ Respond with ONLY valid JSON — no markdown, no preamble — in EXACTLY this sh
 }
 CAPS: ideas 12-18, go_look 3-5.`;
 
+// One call to the Worker for a given task; returns parsed JSON or null.
+async function callPass(task, tokens){
+  let content = imageData
+    ? [{type:'image',source:{type:'base64',media_type:mediaType,data:imageData}},{type:'text',text:task}]
+    : task;
+  const body={ model:MODEL, max_tokens:tokens, messages:[{role:'user',content}] };
+  const res=await fetch(WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!res.ok) throw new Error('Worker returned '+res.status);
+  const data=await res.json();
+  if(data.error) throw new Error(data.error.message||'API error');
+  const raw=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+  return parseJSON(raw);
+}
+
 async function run(){
   const thing=cityEl.value.trim();
   if(!thing && !imageData){ setStatus('Type an ordinary thing or upload a photo first.',true); return; }
   goEl.disabled=true; outEl.style.display='none'; outEl.innerHTML='';
-  setStatus('<span class="scan">Opening the guide</span>');
 
   lastThing = thing || '(from photo)';
   lastImageUrl = imageData ? ('data:'+mediaType+';base64,'+imageData) : null;
 
   const lite = depthEl.value==='lite';
-  let task = (lite ? LITE_INSTRUCTION : INSTRUCTION);
-  if(thing) task += `\n\nORDINARY THING: ${thing}`;
-  if(imageData) task += `\n\nA photo of the thing is attached above — use what you can actually see in it to ground and sharpen the specifics.`;
-
-  let content;
-  if(imageData){
-    content=[{type:'image',source:{type:'base64',media_type:mediaType,data:imageData}},{type:'text',text:task}];
-  } else {
-    content=task;
-  }
-
-  const body={ model:MODEL, max_tokens: lite?1200:6000, messages:[{role:'user',content}] };
+  const thingLine = thing ? `\n\nORDINARY THING: ${thing}` : '';
+  const imgLine = imageData ? `\n\nA photo of the thing is attached above — use what you can actually see in it to ground and sharpen the specifics.` : '';
 
   try{
-    const res=await fetch(WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!res.ok) throw new Error('Worker returned '+res.status);
-    const data=await res.json();
-    const raw=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
-    const parsed=parseJSON(raw);
-    if(!parsed) throw new Error('Could not parse the response — try Fast mode or run again.');
-    render(parsed);
-    setStatus('');
+    if(lite){
+      setStatus('<span class="scan">Opening the guide</span>');
+      const d = await callPass(LITE_INSTRUCTION+thingLine+imgLine, 1200);
+      if(!d) throw new Error('Could not parse the response — run again.');
+      render(d);
+      setStatus('');
+    } else {
+      // Two-pass Standard: split so neither request truncates or times out.
+      setStatus('<span class="scan">Building the guide · two passes</span>');
+      const [a,b] = await Promise.all([
+        callPass(INSTRUCTION_A+thingLine+imgLine, 4000),
+        callPass(INSTRUCTION_B+thingLine+imgLine, 4000)
+      ]);
+      if(!a) throw new Error('Could not parse the response — try Lite mode or run again.');
+      const merged = Object.assign({}, a, b||{});
+      render(merged);
+      setStatus(b ? '' : 'Note: the extras pass came back garbled — core kit shown. Run again for the full guide.');
+    }
   }catch(err){
     setStatus('Error: '+err.message,true);
   }finally{ goEl.disabled=false; }
