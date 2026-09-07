@@ -604,6 +604,18 @@ function render(d){
 function stamp(){const p=n=>String(n).padStart(2,'0');const t=new Date();return `${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())}-${p(t.getHours())}${p(t.getMinutes())}`;}
 function prettyStamp(){return new Date().toLocaleString([],{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});}
 
+// Pick the highest render scale that keeps the canvas under the browser's
+// canvas-size limits, so long guides render in full instead of clipping.
+function safeScale(node, desired){
+  const w = node.offsetWidth || 900;
+  const h = node.scrollHeight;
+  const MAX_AREA = 15000000;   // headroom under Safari's ~16.78M px² canvas cap
+  const MAX_SIDE = 16000;      // headroom under the max single-dimension cap
+  const byArea = Math.sqrt(MAX_AREA / (w * h));
+  const bySide = MAX_SIDE / Math.max(w, h);
+  return Math.max(0.5, Math.min(desired, byArea, bySide));
+}
+
 async function snapshot(){
   if(!lastData) return;
   const btn=$('snap');
@@ -615,9 +627,10 @@ async function snapshot(){
   document.body.appendChild(node);
   try{
     await new Promise(r=>setTimeout(r,90));
-    const canvas=await html2canvas(node,{scale:1.75,backgroundColor:'#04060a',useCORS:true,logging:false});
+    const scale=safeScale(node,2);
+    const canvas=await html2canvas(node,{scale,backgroundColor:'#04060a',useCORS:true,logging:false});
     const img=canvas.toDataURL('image/jpeg',0.82);
-    const w=canvas.width/1.75,hh=canvas.height/1.75;
+    const w=canvas.width/scale,hh=canvas.height/scale;
     const {jsPDF}=window.jspdf;
     const pdf=new jsPDF({orientation:hh>=w?'p':'l',unit:'px',format:[w,hh],compress:true});
     pdf.addImage(img,'JPEG',0,0,w,hh);
