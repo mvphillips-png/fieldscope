@@ -115,19 +115,6 @@
   .item .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
   .item .nm{font-family:var(--body);font-weight:600;font-size:17px;color:#eaf6ff;line-height:1.3;}
   .item .ds{font-size:14.5px;line-height:1.5;color:var(--text);margin-top:5px;}
-  .tags{display:flex;gap:7px;flex-shrink:0;flex-wrap:wrap;}
-  .tg{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:2px;border:1px solid var(--line);color:var(--muted);white-space:nowrap;}
-  .tg.use{color:var(--cyan);border-color:rgba(0,229,255,.3);}
-  .tg.d-Easy{color:var(--green);border-color:rgba(34,255,167,.3);}
-  .tg.d-Med{color:var(--amber);border-color:rgba(255,176,0,.3);}
-  .tg.d-Hard{color:#ff5470;border-color:rgba(255,84,112,.35);}
-
-  .meters{display:flex;gap:14px;flex-wrap:wrap;margin-top:9px;}
-  .mt{font-family:var(--mono);font-size:11px;letter-spacing:.05em;color:var(--muted);display:flex;align-items:center;gap:5px;}
-  .mt .dots{letter-spacing:1px;}
-  .mt .on{color:var(--cyan);} .a-amber .mt .on{color:var(--amber);}
-  .a-magenta .mt .on{color:var(--magenta);} .a-green .mt .on{color:var(--green);}
-  .mt .off{color:#26313d;}
 
   .chips{display:flex;flex-wrap:wrap;gap:10px;}
   .chip{background:#020407;border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:3px;padding:10px 14px;flex:1;min-width:180px;}
@@ -142,6 +129,22 @@
   .plist{display:grid;gap:8px;}
   .pl{font-size:15px;line-height:1.5;color:var(--text);padding-left:16px;position:relative;}
   .pl::before{content:"\203A";position:absolute;left:0;color:var(--green);}
+
+  .slide{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);
+      border-left:3px solid var(--cyan);border-radius:4px;padding:15px 17px;margin-bottom:11px;animation:rise .4s ease both;}
+  .slide.r-hook{border-left-color:var(--magenta);}
+  .slide.r-cta{border-left-color:var(--green);}
+  .slide-top{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
+  .slide-no{font-family:var(--head);font-weight:900;font-size:15px;color:#020407;background:var(--cyan);
+      width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .r-hook .slide-no{background:var(--magenta);} .r-cta .slide-no{background:var(--green);}
+  .slide-role{font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);}
+  .r-hook .slide-role{color:var(--magenta);} .r-cta .slide-role{color:var(--green);}
+  .slide-h{font-family:var(--head);font-weight:700;font-size:18px;letter-spacing:.02em;color:#eaf6ff;line-height:1.3;}
+  .slide-b{font-size:15px;line-height:1.5;color:var(--text);margin-top:6px;}
+  .slide-v{font-size:13px;line-height:1.45;color:var(--muted);margin-top:9px;padding-top:8px;border-top:1px dashed var(--line);}
+  .slide-vk{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan);
+      border:1px solid rgba(0,229,255,.3);border-radius:2px;padding:1px 6px;margin-right:6px;}
 
   .golook{background:linear-gradient(180deg,rgba(34,255,167,.09),rgba(0,229,255,.04));
       border:1px solid rgba(34,255,167,.4);border-left:3px solid var(--green);border-radius:4px;
@@ -190,6 +193,8 @@
   .btn-snap{color:var(--amber);background:transparent;border:1px solid rgba(255,176,0,.5);}
   .btn-snap:hover{background:rgba(255,176,0,.1);box-shadow:0 0 16px rgba(255,176,0,.25);}
   .btn-snap:disabled{opacity:.5;cursor:wait;}
+  .btn-txt{color:var(--cyan);background:transparent;border:1px solid rgba(0,229,255,.5);}
+  .btn-txt:hover{background:rgba(0,229,255,.1);box-shadow:0 0 16px rgba(0,229,255,.25);}
 
   #snapshot{position:absolute;left:-99999px;top:0;width:900px;background:#04060a;padding:40px;color:var(--text);font-family:var(--body);
       background-image:linear-gradient(rgba(0,229,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,.035) 1px,transparent 1px);
@@ -230,10 +235,11 @@
     <div class="preview" id="preview"><img id="pimg" alt="upload preview"></div>
 
     <div class="rebuild-row">
-      <label for="depth">Depth</label>
+      <label for="depth">Output</label>
       <select id="depth">
-        <option value="standard">Standard &middot; full scored field guide kit</option>
+        <option value="standard">Standard &middot; full field guide kit</option>
         <option value="lite">Lite &middot; quick idea dump (cheapest)</option>
+        <option value="carousel">Carousel &middot; social post slides</option>
       </select>
     </div>
 
@@ -317,26 +323,19 @@ RULES THAT SEPARATE THIS FROM AN ENCYCLOPEDIA:
 // PASS 1 — the heavy scored drawable sections.
 const INSTRUCTION_A = `${PREAMBLE}
 
-THIS IS PASS 1 OF 2 — the drawable core. Return ONLY the scored sections below.
+THIS IS PASS 1 OF 2 — the drawable core. Return ONLY the sections below, as raw illustration ideas.
 
-SCORING (integers 1-5) for every item:
-- v = visual potential (how striking / drawable it is)
-- s = surprise (does it make a reader go "huh — I never realized that") — weight high
-- r = relatable (will an ordinary reader instantly recognize it from their own life)
-- h = humor potential — weight high
-Also: diff = "Easy" | "Med" | "Hard", and use = "Spot" | "Diagram" | "Hero" | "Timeline" | "Type" | "BG".
-
-Return the CURATED strongest ingredients, capped. Respond with ONLY valid JSON — no markdown, no preamble — in EXACTLY this shape:
+List the CURATED strongest, most-illustratable ideas first in each section, capped. Each item is just a short name and a specific, drawable description — no scores, no ratings. Respond with ONLY valid JSON — no markdown, no preamble — in EXACTLY this shape:
 {
   "thing": "The ordinary thing, cleanly titled",
   "read": "1-2 sentences: what this thing really is and why it secretly deserves a whole guide",
   "reveal": "one punchy sentence: what this ordinary thing quietly reveals about us (the closing perspective)",
-  "anatomy": [{"n":"part to label","d":"what it is / the quiet detail worth pointing at","v":4,"s":3,"r":4,"h":2,"diff":"Easy","use":"Diagram"}],
-  "evolution": [{"n":"era or stage","d":"what it looked like / what changed","v":4,"s":4,"r":3,"h":2,"diff":"Med","use":"Timeline"}],
-  "species": [{"n":"variety / type","d":"how to identify it — the 'look for…' tell","v":4,"s":3,"r":4,"h":3,"diff":"Easy","use":"Spot"}],
-  "mechanism": [{"n":"how-it-works bit","d":"the clever bit of the mechanism, drawn as a step or cutaway","v":4,"s":4,"r":3,"h":2,"diff":"Med","use":"Diagram"}],
-  "behavior": [{"n":"the human behavior","d":"the predictable, drawable thing people do around it","v":4,"s":4,"r":5,"h":5,"diff":"Med","use":"Spot"}],
-  "clever": [{"n":"the clever thing","d":"the hidden-in-plain-sight smart design or psychology","v":3,"s":5,"r":3,"h":2,"diff":"Med","use":"Diagram"}]
+  "anatomy": [{"n":"part to label","d":"what it is / the quiet detail worth pointing at"}],
+  "evolution": [{"n":"era or stage","d":"what it looked like / what changed"}],
+  "species": [{"n":"variety / type","d":"how to identify it — the 'look for…' tell"}],
+  "mechanism": [{"n":"how-it-works bit","d":"the clever bit of the mechanism, drawn as a step or cutaway"}],
+  "behavior": [{"n":"the human behavior","d":"the predictable, drawable thing people do around it"}],
+  "clever": [{"n":"the clever thing","d":"the hidden-in-plain-sight smart design or psychology"}]
 }
 CAPS: anatomy up to 8, evolution up to 5, species up to 6, mechanism up to 5, behavior up to 6, clever up to 5.`;
 
@@ -376,6 +375,26 @@ Respond with ONLY valid JSON — no markdown, no preamble — in EXACTLY this sh
 }
 CAPS: ideas 12-18, go_look 3-5.`;
 
+const CAROUSEL_INSTRUCTION = `You are FIELDSCOPE in CAROUSEL mode. Given an ORDINARY THING, write a 5-to-10-slide social-media carousel that takes a scroller on a short, surprising, guided tour of that everyday object — the kind of post that makes someone stop and think "I never looked at it that way." This is a social post, NOT the illustration kit.
+
+STRUCTURE:
+- Slide 1 is the HOOK: a punchy title plus one line that creates curiosity or a small "wait, what?" — it must earn the swipe.
+- The MIDDLE slides (STORY) build a real arc: each reveals one interesting, specific, true thing and hands off to the next, so it reads as a guided story, not a list of trivia. Escalate toward the payoff — the quiet truth about what this object reveals about us.
+- The FINAL slide is the CTA: a one-line takeaway that lands the idea, then a warm, low-pressure call to action (follow for more ordinary things seen differently / which object should I decode next / etc.).
+
+VOICE: curious, warm, a little funny, never clickbaity or fake-hype. Keep each slide SHORT — a headline plus 1-2 tight sentences a person can read in a glance. Be honest: no fabricated dates, inventors, or numbers. For each slide, also suggest what to illustrate on it.
+
+Respond with ONLY valid JSON — no markdown, no preamble — in EXACTLY this shape:
+{
+  "thing": "The ordinary thing, cleanly titled",
+  "slides": [
+    {"role":"HOOK","headline":"slide 1 title","body":"the curiosity line that earns the swipe","visual":"what to draw / show on this slide"},
+    {"role":"STORY","headline":"short headline","body":"1-2 tight sentences revealing one interesting thing","visual":"what to draw / show"},
+    {"role":"CTA","headline":"the takeaway","body":"one landing line + a warm call to action","visual":"what to draw / show"}
+  ]
+}
+Use 5 to 10 slides total: exactly one HOOK first, one CTA last, the rest STORY.`;
+
 // One call to the Worker for a given task; returns parsed JSON or null.
 async function callPass(task, tokens){
   let content = imageData
@@ -398,14 +417,20 @@ async function run(){
   lastThing = thing || '(from photo)';
   lastImageUrl = imageData ? ('data:'+mediaType+';base64,'+imageData) : null;
 
-  const lite = depthEl.value==='lite';
+  const mode = depthEl.value;
   const thingLine = thing ? `\n\nORDINARY THING: ${thing}` : '';
   const imgLine = imageData ? `\n\nA photo of the thing is attached above — use what you can actually see in it to ground and sharpen the specifics.` : '';
 
   try{
-    if(lite){
+    if(mode==='lite'){
       setStatus('<span class="scan">Opening the guide</span>');
       const r = await callPass(LITE_INSTRUCTION+thingLine+imgLine, 1200);
+      if(!r.parsed) throw new Error('Response unreadable ('+r.raw.length+' chars, stop='+(r.stop||'?')+') — run again.');
+      render(r.parsed);
+      setStatus('');
+    } else if(mode==='carousel'){
+      setStatus('<span class="scan">Storyboarding the carousel</span>');
+      const r = await callPass(CAROUSEL_INSTRUCTION+thingLine+imgLine, 2500);
       if(!r.parsed) throw new Error('Response unreadable ('+r.raw.length+' chars, stop='+(r.stop||'?')+') — run again.');
       render(r.parsed);
       setStatus('');
@@ -463,41 +488,17 @@ function parseJSON(raw){
 function esc(t){const d=document.createElement('div');d.textContent=t==null?'':t;return d.innerHTML;}
 function num(x){x=parseInt(x,10);return isNaN(x)?0:Math.max(0,Math.min(5,x));}
 
-function dots(v){v=num(v);return `<span class="dots"><span class="on">${'\u25CF'.repeat(v)}</span><span class="off">${'\u25CB'.repeat(5-v)}</span></span>`;}
-function meter(label,v){return `<span class="mt">${label} ${dots(v)}</span>`;}
-
 function itemHTML(it){
-  const diff=esc(it.diff||''); const use=esc(it.use||'');
-  const dcls=/easy/i.test(diff)?'d-Easy':/hard/i.test(diff)?'d-Hard':'d-Med';
   return `<div class="item">
-    <div class="top">
-      <div style="flex:1;min-width:200px">
-        <div class="nm">${esc(it.n)}</div>
-        ${it.d?`<div class="ds">${esc(it.d)}</div>`:''}
-      </div>
-      <div class="tags">
-        ${use?`<span class="tg use">${use}</span>`:''}
-        ${diff?`<span class="tg ${dcls}">${diff}</span>`:''}
-      </div>
-    </div>
-    <div class="meters">${meter('V',it.v)}${meter('S',it.s)}${meter('R',it.r)}${meter('H',it.h)}</div>
+    <div class="nm">${esc(it.n)}</div>
+    ${it.d?`<div class="ds">${esc(it.d)}</div>`:''}
   </div>`;
 }
 
-function scoreSort(arr){
-  return (arr||[]).slice().sort((a,b)=>{
-    const sa=num(a.v)+num(a.s)*1.4+num(a.h)*1.2+num(a.r)*0.7;
-    const sb=num(b.v)+num(b.s)*1.4+num(b.h)*1.2+num(b.r)*0.7;
-    return sb-sa;
-  });
-}
-
-function section(cls,name,arr,cap,sort){
-  let items=(arr||[]).filter(Boolean);
-  items = sort===false ? items.slice(0,cap) : scoreSort(items).slice(0,cap);
+function section(cls,name,arr,cap){
+  const items=(arr||[]).filter(Boolean).slice(0,cap);
   if(!items.length) return '';
-  const note = sort===false ? `${items.length}` : `${items.length} ${items.length===1?'ingredient':'ingredients'} · sorted strongest first`;
-  return `<div class="sec ${cls}"><div class="sh"><span class="sn">${name}</span><span class="sc">${note}</span></div>${items.map(itemHTML).join('')}</div>`;
+  return `<div class="sec ${cls}"><div class="sh"><span class="sn">${name}</span><span class="sc">${items.length}</span></div>${items.map(itemHTML).join('')}</div>`;
 }
 
 function plainSection(cls,name,arr,fmt){
@@ -508,6 +509,24 @@ function plainSection(cls,name,arr,fmt){
 
 function bodyHTML(d){
   let h='';
+
+  // Carousel mode: social slide sequence, then out
+  if(Array.isArray(d.slides) && d.slides.length){
+    h+=`<div class="kithead"><div class="kc">Carousel · ${esc(d.thing||lastThing)}</div><div class="kr">A ${d.slides.length}-slide social post — swipe-through story. Each card is one slide.</div></div>`;
+    d.slides.forEach((s,i)=>{
+      if(!s) return;
+      const role=esc(s.role||'STORY').toUpperCase();
+      const rcls=/hook/i.test(role)?'r-hook':/cta/i.test(role)?'r-cta':'r-story';
+      h+=`<div class="slide ${rcls}">
+        <div class="slide-top"><span class="slide-no">${i+1}</span><span class="slide-role">${role}</span></div>
+        ${s.headline?`<div class="slide-h">${esc(s.headline)}</div>`:''}
+        ${s.body?`<div class="slide-b">${esc(s.body)}</div>`:''}
+        ${s.visual?`<div class="slide-v"><span class="slide-vk">draw</span> ${esc(s.visual)}</div>`:''}
+      </div>`;
+    });
+    return h;
+  }
+
   h+=`<div class="kithead"><div class="kc">Field Guide to ${esc(d.thing||lastThing)}</div>${d.read?`<div class="kr">${esc(d.read)}</div>`:''}</div>`;
   if(d.reveal) h+=`<div class="onlyhere"><div class="k">What it's really about</div><div class="v">${esc(d.reveal)}</div></div>`;
 
@@ -580,6 +599,7 @@ function render(d){
   let html=bodyHTML(d);
   html+=`<div class="controls">
     <button class="btn-again" id="again">&#8635; Run again</button>
+    <button class="btn-txt" id="savetxt">&#8681; Save .txt</button>
     <button class="btn-snap" id="snap">&#11015; Snapshot PDF</button>
     <button class="btn-new" id="fresh">&#10005; New thing</button>
   </div>`;
@@ -596,6 +616,7 @@ function render(d){
     });
   });
   $('again').addEventListener('click',run);
+  $('savetxt').addEventListener('click',saveText);
   $('fresh').addEventListener('click',newThing);
   $('snap').addEventListener('click',snapshot);
   outEl.scrollIntoView({behavior:'smooth',block:'start'});
@@ -603,6 +624,72 @@ function render(d){
 
 function stamp(){const p=n=>String(n).padStart(2,'0');const t=new Date();return `${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())}-${p(t.getHours())}${p(t.getMinutes())}`;}
 function prettyStamp(){return new Date().toLocaleString([],{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});}
+
+// Build a clean, editable plain-text version of the whole kit (Lite or Standard).
+function kitToText(d){
+  const L=[]; const push=s=>L.push(s==null?'':String(s));
+  const head=t=>{ push(''); push(t.toUpperCase()); };
+  const scored=arr=>(arr||[]).forEach(it=>{ if(it) push('- '+(it.n||'')+(it.d?' — '+it.d:'')); });
+  const list=arr=>(arr||[]).forEach(x=>{ if(x) push('- '+x); });
+
+  push('FIELDSCOPE — FIELD GUIDE');
+  push(d.thing||lastThing||'');
+  push('Generated '+prettyStamp()+" · Morgan's Field Guides to Ordinary Things");
+
+  // Carousel mode
+  if(Array.isArray(d.slides) && d.slides.length){
+    head('Social Carousel — '+d.slides.length+' Slides');
+    d.slides.forEach((s,i)=>{
+      if(!s) return;
+      push('');
+      push('SLIDE '+(i+1)+' · '+String(s.role||'STORY').toUpperCase());
+      if(s.headline) push(s.headline);
+      if(s.body) push(s.body);
+      if(s.visual) push('[draw: '+s.visual+']');
+    });
+    push(''); push('—'); push('Quirky Flash Chronicles · Gravificer System');
+    return L.join('\n');
+  }
+
+  if(d.read){ head('The Read'); push(d.read); }
+  if(d.reveal){ head("What It's Really About"); push(d.reveal); }
+
+  if(Array.isArray(d.ideas) && d.ideas.length){
+    head('Drawable Ideas'); list(d.ideas);
+  } else {
+    if((d.anatomy||[]).length){ head('Anatomy — Parts to Label'); scored(d.anatomy); }
+    if((d.evolution||[]).length){ head('Evolution — Then → Now'); scored(d.evolution); }
+    if((d.species||[]).length){ head('Species — How to Identify One'); scored(d.species); }
+    if((d.mechanism||[]).length){ head('How It Actually Works'); scored(d.mechanism); }
+    if((d.behavior||[]).length){ head('Human Behavior Around It'); scored(d.behavior); }
+    if((d.clever||[]).length){ head('Surprisingly Clever'); scored(d.clever); }
+    if((d.ridiculous||[]).length){ head('Surprisingly Ridiculous'); list(d.ridiculous); }
+    if((d.rules||[]).length){ head('Unwritten Rules'); list(d.rules); }
+    if((d.wrong||[]).length){ head('What People Get Wrong'); list(d.wrong); }
+    if((d.unnoticed||[]).length){ head('What Nobody Notices'); list(d.unnoticed); }
+    if((d.numbers||[]).length){ head('Numbers That Change How You See It'); (d.numbers||[]).forEach(x=>{ if(x&&(x.big||x.note)) push('- '+(x.big||'')+(x.note?' — '+x.note:'')); }); }
+    if((d.lettering||[]).length){ head('Lettering Opportunities'); (d.lettering||[]).forEach(x=>{ if(x&&x.phrase) push('- "'+x.phrase+'"'+(x.note?' — '+x.note:'')); }); }
+    if((d.palette||[]).length){ head('Color Inspiration'); (d.palette||[]).forEach(x=>{ if(x&&x.hex) push('- '+(x.name||'')+' '+x.hex+(x.note?' — '+x.note:'')); }); }
+    if(d.cover||d.spread||d.poster){ head('Composition Starts'); if(d.cover) push('Cover: '+d.cover); if(d.spread) push('Hero spread: '+d.spread); if(d.poster) push('Poster: '+d.poster); }
+  }
+
+  if((d.go_look||[]).length){ head('Go Look — Notice Next Time'); list(d.go_look); }
+  if((d.verify||[]).length){ head('Check Before You Print'); (d.verify||[]).forEach(x=>{ if(x&&(x.claim||x.check)){ push('- '+(x.claim||'')); if(x.check) push('  → '+x.check); } }); }
+
+  push(''); push('—'); push('Quirky Flash Chronicles · Gravificer System');
+  return L.join('\n');
+}
+
+function saveText(){
+  if(!lastData) return;
+  const blob=new Blob([kitToText(lastData)],{type:'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='fieldguide-'+(lastData.thing||lastThing).replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'-'+stamp()+'.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 
 // Pick the highest render scale that keeps the canvas under the browser's
 // canvas-size limits, so long guides render in full instead of clipping.
