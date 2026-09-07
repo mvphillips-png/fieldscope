@@ -240,6 +240,7 @@
         <option value="standard">Standard &middot; full field guide kit</option>
         <option value="lite">Lite &middot; quick idea dump (cheapest)</option>
         <option value="carousel">Carousel &middot; social post slides</option>
+        <option value="diagram">Diagram &middot; single-page illustrated explainer</option>
       </select>
     </div>
 
@@ -380,7 +381,7 @@ const CAROUSEL_INSTRUCTION = `You are FIELDSCOPE in CAROUSEL mode. Given an ORDI
 STRUCTURE:
 - Slide 1 is the HOOK: a punchy title plus one line that creates curiosity or a small "wait, what?" — it must earn the swipe.
 - The MIDDLE slides (STORY) build a real arc: each reveals one interesting, specific, true thing and hands off to the next, so it reads as a guided story, not a list of trivia. Escalate toward the payoff — the quiet truth about what this object reveals about us.
-- The FINAL slide is the CTA: a one-line takeaway that lands the idea, then a warm, low-pressure call to action (follow for more ordinary things seen differently / which object should I decode next / etc.).
+- The FINAL slide is the CLOSE: a one-line takeaway that lands the whole idea — the quiet truth about what this object reveals about us. Do NOT add a call to action, a follow/subscribe ask, or a "which one next" prompt. End on the thought itself.
 
 VOICE: curious, warm, a little funny, never clickbaity or fake-hype. Keep each slide SHORT — a headline plus 1-2 tight sentences a person can read in a glance. Be honest: no fabricated dates, inventors, or numbers. For each slide, also suggest what to illustrate on it.
 
@@ -390,10 +391,28 @@ Respond with ONLY valid JSON — no markdown, no preamble — in EXACTLY this sh
   "slides": [
     {"role":"HOOK","headline":"slide 1 title","body":"the curiosity line that earns the swipe","visual":"what to draw / show on this slide"},
     {"role":"STORY","headline":"short headline","body":"1-2 tight sentences revealing one interesting thing","visual":"what to draw / show"},
-    {"role":"CTA","headline":"the takeaway","body":"one landing line + a warm call to action","visual":"what to draw / show"}
+    {"role":"CLOSE","headline":"the takeaway","body":"the one line that lands the whole idea — no call to action","visual":"what to draw / show"}
   ]
 }
-Use 5 to 10 slides total: exactly one HOOK first, one CTA last, the rest STORY.`;
+Use 5 to 10 slides total: exactly one HOOK first, one CLOSE last, the rest STORY.`;
+
+const DIAGRAM_INSTRUCTION = `You are FIELDSCOPE in DIAGRAM mode. Given an ORDINARY THING, design a single-page ILLUSTRATED EXPLAINER — a labelled diagram poster of that everyday object, like a "Labelled Plant Cell" chart or an "Anatomy of ___" print. This is the plan for ONE finished visual: a central illustration of the subject with labelled callouts pointing to its parts, a short key-points box, and a layout an illustrator can build from directly.
+
+Make it fun AND useful: the callouts should teach something real and specific, and at least a couple should carry a spark of humor or surprise. Be honest — no fabricated dates, inventors, or numbers.
+
+Respond with ONLY valid JSON — no markdown, no preamble — in EXACTLY this shape:
+{
+  "thing": "The ordinary thing, cleanly titled",
+  "title": "the poster's title, e.g. 'Anatomy of the Shopping Cart' or 'The Labelled Umbrella'",
+  "subtitle": "one short line: what this diagram teaches or the angle it takes",
+  "center": "the central hero illustration to draw big in the middle — describe the subject and the best view (cutaway, side-on, exploded) for showing its parts",
+  "callouts": [{"label":"the part or point","note":"one short sentence explaining it","where":"which part of the subject this label points to"}],
+  "keypoints": ["a punchy takeaway line for a 'Key Points' box at the bottom"],
+  "layout": "a short plan for arranging the page — title placement, how the callouts radiate from the central illustration, where the key-points box sits",
+  "palette": [{"name":"color name","hex":"#rrggbb","note":"where this color goes"}],
+  "style": "one line on the visual style and mood that fits this subject"
+}
+CAPS: callouts 6-12, keypoints 3-5, palette 4-6.`;
 
 // One call to the Worker for a given task; returns parsed JSON or null.
 async function callPass(task, tokens){
@@ -407,6 +426,13 @@ async function callPass(task, tokens){
   if(data.error) throw new Error(data.error.message||'API error');
   const raw=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
   return { parsed: parseJSON(raw), raw, stop: data.stop_reason||'' };
+}
+
+// Turn a failed parse into a message that fits the actual cause.
+function parseFailMsg(r){
+  if(r.stop==='max_tokens') return 'That came back too long to read cleanly — try Lite mode or run again.';
+  if(r.raw && r.raw.indexOf('{')!==-1) return 'Had trouble reading that response — please run again.';
+  return 'Couldn\'t turn that into a field guide. FIELDSCOPE works on everyday objects and places — try something like "umbrellas" or "parking lots." Real people, brands, logos, and news posts aren\'t a fit.';
 }
 
 async function run(){
@@ -425,13 +451,19 @@ async function run(){
     if(mode==='lite'){
       setStatus('<span class="scan">Opening the guide</span>');
       const r = await callPass(LITE_INSTRUCTION+thingLine+imgLine, 1200);
-      if(!r.parsed) throw new Error('Response unreadable ('+r.raw.length+' chars, stop='+(r.stop||'?')+') — run again.');
+      if(!r.parsed) throw new Error(parseFailMsg(r));
       render(r.parsed);
       setStatus('');
     } else if(mode==='carousel'){
       setStatus('<span class="scan">Storyboarding the carousel</span>');
       const r = await callPass(CAROUSEL_INSTRUCTION+thingLine+imgLine, 2500);
-      if(!r.parsed) throw new Error('Response unreadable ('+r.raw.length+' chars, stop='+(r.stop||'?')+') — run again.');
+      if(!r.parsed) throw new Error(parseFailMsg(r));
+      render(r.parsed);
+      setStatus('');
+    } else if(mode==='diagram'){
+      setStatus('<span class="scan">Laying out the diagram</span>');
+      const r = await callPass(DIAGRAM_INSTRUCTION+thingLine+imgLine, 3000);
+      if(!r.parsed) throw new Error(parseFailMsg(r));
       render(r.parsed);
       setStatus('');
     } else {
@@ -443,7 +475,7 @@ async function run(){
       ]);
       if(ra.status==='rejected') throw new Error(ra.reason.message);
       const A=ra.value;
-      if(!A.parsed) throw new Error('Pass 1 unreadable ('+A.raw.length+' chars, stop='+(A.stop||'?')+') — try Lite or run again.');
+      if(!A.parsed) throw new Error(parseFailMsg(A));
       const B = (rb.status==='fulfilled' && rb.value.parsed) ? rb.value.parsed : null;
       const merged = Object.assign({}, A.parsed, B||{});
       render(merged);
@@ -516,7 +548,7 @@ function bodyHTML(d){
     d.slides.forEach((s,i)=>{
       if(!s) return;
       const role=esc(s.role||'STORY').toUpperCase();
-      const rcls=/hook/i.test(role)?'r-hook':/cta/i.test(role)?'r-cta':'r-story';
+      const rcls=/hook/i.test(role)?'r-hook':/close|cta/i.test(role)?'r-cta':'r-story';
       h+=`<div class="slide ${rcls}">
         <div class="slide-top"><span class="slide-no">${i+1}</span><span class="slide-role">${role}</span></div>
         ${s.headline?`<div class="slide-h">${esc(s.headline)}</div>`:''}
@@ -524,6 +556,22 @@ function bodyHTML(d){
         ${s.visual?`<div class="slide-v"><span class="slide-vk">draw</span> ${esc(s.visual)}</div>`:''}
       </div>`;
     });
+    return h;
+  }
+
+  // Diagram mode: single-page illustrated explainer spec, then out
+  if(Array.isArray(d.callouts) && d.callouts.length){
+    h+=`<div class="kithead"><div class="kc">${esc(d.title||('Diagram · '+(d.thing||lastThing)))}</div>${d.subtitle?`<div class="kr">${esc(d.subtitle)}</div>`:''}</div>`;
+    if(d.center) h+=`<div class="onlyhere"><div class="k">Center of the page — the hero</div><div class="v">${esc(d.center)}</div></div>`;
+    h+=`<div class="sec a-cyan"><div class="sh"><span class="sn">Labelled callouts</span><span class="sc">${d.callouts.length}</span></div>`;
+    d.callouts.forEach(c=>{ if(!c) return; h+=`<div class="item"><div class="nm">${esc(c.label||'')}</div>${c.note?`<div class="ds">${esc(c.note)}</div>`:''}${c.where?`<div class="ds" style="color:var(--muted);font-size:12.5px;margin-top:5px">points to: ${esc(c.where)}</div>`:''}</div>`; });
+    h+=`</div>`;
+    const kp=(d.keypoints||[]).filter(Boolean).slice(0,5);
+    if(kp.length){ h+=`<div class="golook"><div class="glk">Key Points</div><div class="gls">the box at the bottom of the poster</div>${kp.map(x=>`<div class="gl">${esc(x)}</div>`).join('')}</div>`; }
+    if(d.layout) h+=`<div class="noteblk"><div class="nk">Layout plan</div><div class="nv">${esc(d.layout)}</div></div>`;
+    const palD=(d.palette||[]).filter(x=>x&&x.hex).slice(0,6);
+    if(palD.length){ h+=`<div class="sec a-cyan" style="margin-top:22px"><div class="sh"><span class="sn">Color inspiration</span><span class="sc">click to copy hex</span></div><div class="swatches">${palD.map(x=>`<div class="sw" data-hex="${esc(x.hex)}"><div class="chip-c" style="background:${esc(x.hex)}"></div><div class="meta"><div class="cn">${esc(x.name||'')}</div><div class="hx">${esc(x.hex)}</div>${x.note?`<div class="nt" style="font-size:11px;color:var(--muted);margin-top:3px;line-height:1.3">${esc(x.note)}</div>`:''}</div></div>`).join('')}</div></div>`; }
+    if(d.style) h+=`<div class="noteblk" style="margin-top:10px"><div class="nk">Style</div><div class="nv">${esc(d.style)}</div></div>`;
     return h;
   }
 
@@ -647,6 +695,21 @@ function kitToText(d){
       if(s.body) push(s.body);
       if(s.visual) push('[draw: '+s.visual+']');
     });
+    push(''); push('—'); push('Quirky Flash Chronicles · Gravificer System');
+    return L.join('\n');
+  }
+
+  // Diagram mode
+  if(Array.isArray(d.callouts) && d.callouts.length){
+    if(d.title){ push(''); push(d.title.toUpperCase()); }
+    if(d.subtitle) push(d.subtitle);
+    head('Center — The Hero Illustration'); if(d.center) push(d.center);
+    head('Labelled Callouts');
+    d.callouts.forEach(c=>{ if(c) push('- '+(c.label||'')+(c.note?' — '+c.note:'')+(c.where?'  [points to: '+c.where+']':'')); });
+    if((d.keypoints||[]).length){ head('Key Points'); (d.keypoints||[]).forEach(x=>{ if(x) push('- '+x); }); }
+    if(d.layout){ head('Layout Plan'); push(d.layout); }
+    if((d.palette||[]).length){ head('Color Inspiration'); (d.palette||[]).forEach(x=>{ if(x&&x.hex) push('- '+(x.name||'')+' '+x.hex+(x.note?' — '+x.note:'')); }); }
+    if(d.style){ head('Style'); push(d.style); }
     push(''); push('—'); push('Quirky Flash Chronicles · Gravificer System');
     return L.join('\n');
   }
